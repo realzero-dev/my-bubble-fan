@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bubble Fan App</title>
+    <title>Bubble Artist Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -11,52 +11,111 @@
         .bubble-text { word-break: break-all; white-space: pre-wrap; }
     </style>
 </head>
-<body class="bg-pink-50 text-slate-800 min-h-screen flex flex-col items-center justify-center p-0 sm:p-4">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
 
-    <!-- 1. 입장 인증 화면 -->
-    <div id="authScreen" class="bg-white w-full max-w-md h-screen sm:h-auto sm:rounded-3xl shadow-xl p-8 flex flex-col justify-center">
-        <div class="text-center mb-8">
-            <span class="bg-pink-100 text-pink-600 text-xs font-bold px-3 py-1 rounded-full">BUBBLE FOR FANS</span>
-            <h1 class="text-2xl font-black mt-3 text-slate-900">프라이빗 메시지 입장</h1>
-            <p class="text-sm text-slate-500 mt-1">지정된 입장 코드를 입력해주세요.</p>
-        </div>
-        <div class="space-y-4">
-            <div>
-                <label class="block text-xs font-bold text-slate-600 mb-1">닉네임</label>
-                <input type="text" id="nicknameInput" placeholder="사용할 닉네임을 입력하세요" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500">
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-slate-600 mb-1">입장 코드</label>
-                <input type="password" id="codeInput" placeholder="입장 코드를 입력하세요" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500">
-            </div>
-            <button id="enterBtn" onclick="enterRoom()" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3.5 rounded-2xl transition shadow-lg shadow-pink-500/30 cursor-pointer">입장하기</button>
-            <p id="errorMsg" class="text-xs text-red-500 text-center font-medium hidden">입장 코드가 올바르지 않거나 닉네임을 입력해주세요.</p>
+    <!-- 로딩 팝업 -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-slate-800 border border-slate-700 px-6 py-4 rounded-2xl flex items-center space-x-3 shadow-2xl">
+            <div class="w-5 h-5 border-2 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+            <span id="loadingText" class="text-sm font-bold text-slate-200">처리 중...</span>
         </div>
     </div>
 
-    <!-- 2. 실제 채팅 화면 -->
-    <div id="chatScreen" class="hidden bg-white w-full max-w-md h-screen sm:h-[85vh] sm:rounded-3xl shadow-xl flex flex-col overflow-hidden">
-        <div class="bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-            <div class="flex items-center space-x-3">
-                <div id="artistAvatar" class="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center font-bold text-pink-600 shrink-0">A</div>
+    <!-- 1. 아티스트 비밀번호 인증 화면 -->
+    <div id="artistAuthScreen" class="fixed inset-0 bg-slate-900 z-40 flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-3xl p-8 shadow-2xl flex flex-col justify-center">
+            <div class="text-center mb-8">
+                <span class="bg-pink-500/20 text-pink-400 text-xs font-bold px-3 py-1 rounded-full border border-pink-500/30">ARTIST STUDIO</span>
+                <h1 class="text-2xl font-black mt-3 text-white">아티스트 인증</h1>
+                <p class="text-sm text-slate-400 mt-1">대시보드 비밀번호를 입력해주세요.</p>
+            </div>
+            <div class="space-y-4">
                 <div>
-                    <h2 id="artistHeaderName" class="font-bold text-sm text-slate-900">아티스트</h2>
-                    <span id="syncStatus" class="text-xs text-emerald-500 font-medium">● 연결됨</span>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">비밀번호</label>
+                    <input type="password" id="artistPasswordInput" placeholder="비밀번호를 입력하세요" class="w-full bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3 text-sm text-white focus:outline-none focus:border-pink-500">
                 </div>
+                <button onclick="verifyArtistPassword()" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3.5 rounded-2xl transition shadow-lg shadow-pink-600/30 cursor-pointer">접속하기</button>
+                <p id="authErrorMsg" class="text-xs text-red-400 text-center font-medium hidden">비밀번호가 올바르지 않습니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 실제 아티스트 대시보드 화면 -->
+    <div id="artistDashboard" class="hidden flex-col min-h-screen">
+        <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex justify-between items-center shadow-md">
+            <div class="flex items-center space-x-3">
+                <span class="bg-pink-500 text-white text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Artist Studio</span>
+                <h1 id="headerTitle" class="text-xl font-bold">아티스트 대시보드</h1>
             </div>
             <div class="flex items-center space-x-2">
-                <div id="userInfoDisplay" class="text-xs bg-slate-100 px-2.5 py-1 rounded-full text-slate-600 font-medium shrink-0"></div>
-                <button onclick="logout()" class="text-[11px] text-slate-400 hover:text-red-500 underline cursor-pointer">나가기</button>
+                <button onclick="openConfigModal()" class="bg-slate-700 hover:bg-slate-600 px-3.5 py-2 rounded-xl text-sm font-medium transition cursor-pointer">⚙️ 설정</button>
+                <button onclick="openFanboxModal()" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-xl text-sm font-medium transition flex items-center space-x-2 cursor-pointer">
+                    <span>📥 팬레터함</span>
+                    <span id="fanboxBadge" class="bg-pink-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+                </button>
+                <button onclick="artistLogout()" class="bg-slate-700/50 hover:bg-red-600/30 text-slate-400 hover:text-red-300 px-3 py-2 rounded-xl text-xs transition cursor-pointer">잠금</button>
+            </div>
+        </header>
+
+        <main class="flex-1 max-w-4xl w-full mx-auto p-4 flex flex-col">
+            <div class="bg-slate-800/60 border border-slate-700 p-4 rounded-2xl mb-4 text-sm text-slate-300 flex justify-between items-center">
+                <span>💡 실시간 고속 동기화 모드 작동 중</span>
+                <span id="syncStatus" class="text-xs text-emerald-400 font-bold">● 연결됨</span>
+            </div>
+
+            <div id="chatContainer" class="flex-1 bg-slate-800/40 border border-slate-800 rounded-3xl p-4 overflow-y-auto space-y-4 mb-4 min-h-[300px] max-h-[55vh]">
+                <p class="text-center text-slate-500 py-10">메시지를 불러오는 중...</p>
+            </div>
+
+            <div id="imagePreviewContainer" class="hidden mb-3 relative inline-block">
+                <img id="imagePreview" src="" alt="미리보기" class="h-24 rounded-xl border border-slate-700 object-cover">
+                <button id="removeImageBtn" onclick="removeImage()" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center font-bold shadow">✕</button>
+            </div>
+
+            <div class="bg-slate-800 p-3 rounded-2xl border border-slate-700 flex items-center space-x-3">
+                <label class="cursor-pointer bg-slate-700 hover:bg-slate-600 text-slate-300 px-3.5 py-3 rounded-xl transition flex items-center justify-center">
+                    📷
+                    <input type="file" id="imageInput" accept="image/*" class="hidden" onchange="handleImageSelect(event)">
+                </label>
+                <input type="text" id="messageInput" placeholder="팬들에게 보낼 메시지를 입력하세요..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-pink-500">
+                <button id="sendBtn" onclick="sendMessage()" class="bg-pink-600 hover:bg-pink-500 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg shadow-pink-600/35 cursor-pointer">전송</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- 설정 및 초기화 모달 -->
+    <div id="configModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-md rounded-3xl p-6 space-y-5">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h2 class="font-bold text-lg">⚙️ 설정 및 데이터 관리</h2>
+                <button onclick="closeConfigModal()" class="text-slate-400 hover:text-white text-xl">✕</button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">아티스트 이름 (활동명)</label>
+                    <input type="text" id="artistNameInput" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-pink-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 mb-1">아티스트 대시보드 비밀번호 변경</label>
+                    <input type="text" id="artistPassInput" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-pink-500">
+                </div>
+            </div>
+            <button onclick="saveConfig()" class="w-full bg-pink-600 hover:bg-pink-500 text-white font-bold py-3 rounded-xl transition cursor-pointer">설정 저장하기</button>
+            
+            <div class="pt-3 border-t border-slate-700">
+                <button onclick="resetAllData()" class="w-full bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white font-bold py-3 rounded-xl transition text-sm cursor-pointer border border-red-600/40">⚠️ 모든 채팅 및 팬레터 초기화</button>
             </div>
         </div>
+    </div>
 
-        <div id="chatContainer" class="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/50">
-            <p class="text-center text-slate-400 text-xs py-10">메시지를 불러오는 중...</p>
-        </div>
-
-        <div class="bg-white p-3 border-t border-slate-100 flex items-center space-x-2">
-            <input type="text" id="fanInput" placeholder="팬레터 남기기..." class="flex-1 bg-slate-100 border border-transparent rounded-2xl px-4 py-3 text-sm focus:outline-none focus:bg-white focus:border-pink-500">
-            <button id="sendFanBtn" onclick="sendFanLetter()" class="bg-pink-500 hover:bg-pink-600 text-white px-5 py-3 rounded-2xl font-bold text-sm transition shadow-md shadow-pink-500/20 cursor-pointer">보내기</button>
+    <!-- 팬레터 모달 -->
+    <div id="fanboxModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 w-full max-w-2xl rounded-3xl overflow-hidden flex flex-col max-h-[80vh]">
+            <div class="p-5 border-b border-slate-700 flex justify-between items-center">
+                <h2 class="font-bold text-lg">📩 유저 팬레터 보관함</h2>
+                <button onclick="closeFanboxModal()" class="text-slate-400 hover:text-white text-xl">✕</button>
+            </div>
+            <div id="fanLetterList" class="p-5 overflow-y-auto space-y-3 flex-1"></div>
         </div>
     </div>
 
@@ -64,209 +123,233 @@
         const GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycbw2E57ZtQ2l1GTDl3l0jeogmMO8joxMYhs5YO9i1gPCNA-Tr16H2hVh81btsTgbRJREHw/exec";
 
         let currentArtistName = localStorage.getItem('bubble_artist_name') || "아티스트";
-        let validEntryCode = localStorage.getItem('bubble_entry_code') || "bubble123";
-        let currentUserName = localStorage.getItem('bubble_user_name') || "";
-        
-        // 캐시 데이터가 있으면 곧바로 불러와서 지연 시간 제거
-        let chatCache = JSON.parse(localStorage.getItem('bubble_chat_cache') || "[]");
-        let fanLettersCache = JSON.parse(localStorage.getItem('bubble_fanletters_cache') || "[]");
-        let localFanLetters = JSON.parse(localStorage.getItem('bubble_my_letters') || "[]");
+        let artistDashboardPassword = localStorage.getItem('bubble_artist_pass') || "admin123";
+        let isArtistLoggedIn = localStorage.getItem('bubble_artist_logged_in') === "true";
 
-        function updateArtistUI() {
-            document.getElementById('artistHeaderName').innerText = currentArtistName;
-            document.getElementById('artistAvatar').innerText = currentArtistName.charAt(0);
-            document.getElementById('fanInput').placeholder = `${currentArtistName}에게 팬레터 남기기...`;
+        let activeQuote = null;
+        let attachedImageBase64 = null;
+        let chatCache = [];
+        let fanLetterCache = [];
+
+        function showLoading(text) {
+            document.getElementById('loadingText').innerText = text || "처리 중...";
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+        }
+        function hideLoading() { document.getElementById('loadingOverlay').classList.add('hidden'); }
+
+        function updateHeader() {
+            document.getElementById('headerTitle').innerText = `${currentArtistName} 대시보드`;
         }
 
         window.onload = function() {
-            if (currentUserName) {
-                // 1. 서버 응답을 기다리지 않고 로컬에 저장된 정보로 즉시 화면 전환 (0초 컷)
-                document.getElementById('userInfoDisplay').innerText = `${currentUserName} 님`;
-                updateArtistUI();
-                document.getElementById('authScreen').classList.add('hidden');
-                document.getElementById('chatScreen').classList.remove('hidden');
-                
-                // 만약 캐시된 채팅이 있다면 바로 그려서 빈 화면 방지
-                if (chatCache.length > 0 || localFanLetters.length > 0) {
-                    renderTimeline();
-                }
-
-                // 2. 서버 통신은 백그라운드에서 조용히 실행
+            if (isArtistLoggedIn) {
+                document.getElementById('artistAuthScreen').classList.add('hidden');
+                document.getElementById('artistDashboard').classList.remove('hidden');
+                document.getElementById('artistDashboard').style.display = 'flex';
+                updateHeader();
                 fetchSheetData();
                 setInterval(fetchSheetData, 1200);
             }
 
-            document.getElementById('fanInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') sendFanLetter();
+            document.getElementById('messageInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendMessage();
+            });
+
+            document.getElementById('artistPasswordInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') verifyArtistPassword();
             });
         };
 
-        function enterRoom() {
-            const nickname = document.getElementById('nicknameInput').value.trim();
-            const code = document.getElementById('codeInput').value.trim();
-            const errorMsg = document.getElementById('errorMsg');
+        function verifyArtistPassword() {
+            const inputVal = document.getElementById('artistPasswordInput').value.trim();
+            const errorMsg = document.getElementById('authErrorMsg');
 
-            if (!nickname || !code) {
-                errorMsg.innerText = "닉네임과 입장 코드를 모두 입력해주세요.";
+            if (inputVal === artistDashboardPassword) {
+                isArtistLoggedIn = true;
+                localStorage.setItem('bubble_artist_logged_in', "true");
+                document.getElementById('artistAuthScreen').classList.add('hidden');
+                document.getElementById('artistDashboard').classList.remove('hidden');
+                document.getElementById('artistDashboard').style.display = 'flex';
+                updateHeader();
+                fetchSheetData();
+                setInterval(fetchSheetData, 1200);
+            } else {
                 errorMsg.classList.remove('hidden');
-                return;
             }
-
-            if (code !== validEntryCode) {
-                errorMsg.innerText = "입장 코드가 올바르지 않습니다.";
-                errorMsg.classList.remove('hidden');
-                return;
-            }
-
-            currentUserName = nickname;
-            localStorage.setItem('bubble_user_name', currentUserName);
-            document.getElementById('userInfoDisplay').innerText = `${currentUserName} 님`;
-            document.getElementById('authScreen').classList.add('hidden');
-            document.getElementById('chatScreen').classList.remove('hidden');
-
-            renderTimeline();
-            fetchSheetData();
-            setInterval(fetchSheetData, 1200);
         }
 
-        function logout() {
-            localStorage.removeItem('bubble_user_name');
-            localStorage.removeItem('bubble_my_letters');
-            localStorage.removeItem('bubble_chat_cache');
-            localStorage.removeItem('bubble_fanletters_cache');
+        function artistLogout() {
+            localStorage.removeItem('bubble_artist_logged_in');
             location.reload();
+        }
+
+        function openConfigModal() {
+            document.getElementById('artistNameInput').value = currentArtistName;
+            document.getElementById('artistPassInput').value = artistDashboardPassword;
+            document.getElementById('configModal').classList.remove('hidden');
+        }
+        function closeConfigModal() { document.getElementById('configModal').classList.add('hidden'); }
+        function openFanboxModal() { document.getElementById('fanboxModal').classList.remove('hidden'); }
+        function closeFanboxModal() { document.getElementById('fanboxModal').classList.add('hidden'); }
+
+        function saveConfig() {
+            const newName = document.getElementById('artistNameInput').value.trim();
+            const newPass = document.getElementById('artistPassInput').value.trim();
+            if (!newName || !newPass) return alert("모든 항목을 입력해주세요.");
+
+            showLoading("설정 저장 중...");
+            currentArtistName = newName;
+            artistDashboardPassword = newPass;
+
+            localStorage.setItem('bubble_artist_name', currentArtistName);
+            localStorage.setItem('bubble_artist_pass', artistDashboardPassword);
+            updateHeader();
+
+            fetch(GOOGLE_API_URL, {
+                method: 'POST',
+                redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ type: 'config', artistName: currentArtistName, entryCode: '' })
+            }).then(() => { hideLoading(); closeConfigModal(); alert("설정이 저장되었습니다!"); }).catch(() => hideLoading());
+        }
+
+        function resetAllData() {
+            if (!confirm("정말 모든 채팅 내역과 팬레터를 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.")) return;
+            showLoading("데이터 초기화 중...");
+            fetch(GOOGLE_API_URL, {
+                method: 'POST',
+                redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ type: 'reset' })
+            }).then(() => {
+                hideLoading();
+                closeConfigModal();
+                chatCache = [];
+                fanLetterCache = [];
+                renderChat([]);
+                renderFanLetters([]);
+                alert("초기화되었습니다.");
+            }).catch(() => hideLoading());
+        }
+
+        function handleImageSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(uploadEvent) {
+                attachedImageBase64 = uploadEvent.target.result;
+                document.getElementById('imagePreview').src = attachedImageBase64;
+                document.getElementById('imagePreviewContainer').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeImage() {
+            attachedImageBase64 = null;
+            document.getElementById('imageInput').value = '';
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
         }
 
         function fetchSheetData() {
             fetch(GOOGLE_API_URL, { redirect: 'follow' })
                 .then(res => res.json())
                 .then(data => {
-                    if (data.config) {
-                        currentArtistName = data.config.artistName || "아티스트";
-                        validEntryCode = data.config.entryCode || "bubble123";
+                    if (data.config && data.config.artistName) {
+                        currentArtistName = data.config.artistName;
                         localStorage.setItem('bubble_artist_name', currentArtistName);
-                        localStorage.setItem('bubble_entry_code', validEntryCode);
-                        updateArtistUI();
+                        updateHeader();
                     }
-                    if (data.chats) {
-                        chatCache = data.chats;
-                        localStorage.setItem('bubble_chat_cache', JSON.stringify(chatCache));
-                    }
-                    if (data.fanletters) {
-                        fanLettersCache = data.fanletters;
-                        localStorage.setItem('bubble_fanletters_cache', JSON.stringify(fanLettersCache));
-                    }
-                    renderTimeline();
+                    if (data.chats) { chatCache = data.chats; renderChat(chatCache); }
+                    if (data.fanletters) { fanLetterCache = data.fanletters; renderFanLetters(fanLetterCache); }
                 })
                 .catch(() => {});
         }
 
-        function renderTimeline() {
+        function renderChat(chats) {
             const chatContainer = document.getElementById('chatContainer');
-            chatContainer.innerHTML = '';
-
-            let combinedList = chatCache.map(msg => ({
-                type: 'artist',
-                timestamp: Number(msg.timestamp) || 0,
-                artistName: msg.artistName,
-                text: msg.text,
-                imageUrl: msg.imageUrl,
-                quote: msg.quote
-            }));
-
-            const allLetters = [...localFanLetters, ...(fanLettersCache.filter(l => l.userName === currentUserName))];
-            const uniqueLettersMap = new Map();
-            allLetters.forEach(l => uniqueLettersMap.set(l.timestamp + l.text, l));
-
-            uniqueLettersMap.forEach(letter => {
-                combinedList.push({
-                    type: 'my_fanletter',
-                    timestamp: Number(letter.timestamp) || 0,
-                    userName: letter.userName,
-                    text: letter.text
-                });
-            });
-
-            combinedList.sort((a, b) => a.timestamp - b.timestamp);
-
-            if (combinedList.length === 0) {
-                chatContainer.innerHTML = '<p class="text-center text-slate-400 text-xs py-10">아직 메시지가 없습니다.</p>';
+            if (chats.length === 0) {
+                chatContainer.innerHTML = '<p class="text-center text-slate-500 py-10">보낸 메시지가 없습니다.</p>';
                 return;
             }
-
-            combinedList.forEach(item => {
+            chatContainer.innerHTML = '';
+            chats.forEach(msg => {
                 const div = document.createElement('div');
-
-                if (item.type === 'artist') {
-                    div.className = 'flex flex-col items-start w-full';
-                    let content = '';
-                    if (item.quote) {
-                        content += `<div class="bg-pink-50 border-l-4 border-pink-500 p-2 rounded text-xs text-slate-600 mb-1 max-w-[85%]">
-                            <span class="font-bold text-pink-600">@${item.quote.userName}</span> 님의 메시지 인용:<br>"${item.quote.text}"
-                        </div>`;
-                    }
-
-                    let innerBubble = `
-                        <div class="flex items-start space-x-2 w-full">
-                            <div class="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center font-bold text-pink-600 text-xs shrink-0">${item.artistName.charAt(0)}</div>
-                            <div class="flex-1">
-                                <div class="text-xs font-bold text-slate-500 mb-1">${item.artistName}</div>
-                                <div class="bg-white border border-slate-100 text-slate-800 p-3.5 rounded-2xl rounded-tl-sm inline-block max-w-[85%] text-sm shadow-sm space-y-2 bubble-text">`;
-
-                    if (item.imageUrl) {
-                        const downloadFilename = `artist_photo_${item.timestamp}.jpg`;
-                        innerBubble += `
-                            <div class="relative group">
-                                <img src="${item.imageUrl}" class="rounded-xl max-h-60 w-full object-cover">
-                                <a href="${item.imageUrl}" download="${downloadFilename}" class="absolute bottom-2 right-2 bg-black/70 hover:bg-black text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg shadow backdrop-blur-sm transition flex items-center space-x-1">
-                                    <span>📥 다운로드</span>
-                                </a>
-                            </div>`;
-                    }
-                    if (item.text) innerBubble += `<div>${item.text}</div>`;
-
-                    innerBubble += `</div></div></div>`;
-                    content += innerBubble;
-                    div.innerHTML = content;
-
-                } else {
-                    div.className = 'flex flex-col items-end w-full mt-2';
-                    div.innerHTML = `
-                        <div class="text-[10px] text-slate-400 mb-0.5">나 (${item.userName})</div>
-                        <div class="bg-pink-500 text-white p-3.5 rounded-2xl rounded-tr-sm max-w-[80%] max-w-max text-sm shadow bubble-text">
-                            ${item.text}
-                        </div>
-                    `;
+                div.className = `flex flex-col items-end w-full`;
+                let content = '';
+                if (msg.quote) {
+                    content += `<div class="bg-slate-700/80 border-l-4 border-pink-500 p-2 rounded text-xs text-slate-300 mb-1 max-w-[85%]">
+                        <span class="font-bold text-pink-400">@${msg.quote.userName}</span> 님의 메시지 인용:<br>"${msg.quote.text}"
+                    </div>`;
                 }
-
+                let innerBubble = `<div class="bg-pink-600 text-white p-3.5 rounded-2xl max-w-[85%] shadow space-y-2 bubble-text">`;
+                if (msg.imageUrl) innerBubble += `<img src="${msg.imageUrl}" class="rounded-xl max-h-60 w-full object-cover">`;
+                if (msg.text) innerBubble += `<div>${msg.text}</div>`;
+                innerBubble += `</div>`;
+                content += innerBubble;
+                div.innerHTML = content;
                 chatContainer.appendChild(div);
             });
-
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        function sendFanLetter() {
-            const fanInput = document.getElementById('fanInput');
-            const text = fanInput.value.trim();
-            if (!text) return;
+        function renderFanLetters(letters) {
+            document.getElementById('fanboxBadge').innerText = letters.length;
+            const fanLetterList = document.getElementById('fanLetterList');
+            if (letters.length === 0) {
+                fanLetterList.innerHTML = '<p class="text-center text-slate-500 py-10">도착한 팬레터가 없습니다.</p>';
+                return;
+            }
+            fanLetterList.innerHTML = '';
+            [...letters].reverse().forEach(letter => {
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900 border border-slate-700 p-4 rounded-2xl flex justify-between items-center';
+                card.innerHTML = `
+                    <div>
+                        <div class="text-xs font-bold text-pink-400 mb-1">👤 ${letter.userName} 팬</div>
+                        <div class="text-sm text-slate-200">${letter.text}</div>
+                    </div>
+                    <button class="bg-pink-600 hover:bg-pink-500 text-white text-xs px-3 py-2 rounded-xl font-bold transition ml-4 whitespace-nowrap cursor-pointer" onclick="replyToFan('${letter.userName}', '${letter.text.replace(/'/g, "\\'")}')">
+                        인용 답장하기
+                    </button>
+                `;
+                fanLetterList.appendChild(card);
+            });
+        }
 
-            const newLetter = {
-                timestamp: Date.now(),
-                userName: currentUserName,
-                text: text
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const text = messageInput.value.trim();
+            if (!text && !attachedImageBase64) return;
+
+            const tempMsg = {
+                sender: 'artist',
+                artistName: currentArtistName,
+                text: text,
+                imageUrl: attachedImageBase64 || '',
+                quote: activeQuote || null
             };
 
-            localFanLetters.push(newLetter);
-            localStorage.setItem('bubble_my_letters', JSON.stringify(localFanLetters));
-            renderTimeline();
-            fanInput.value = '';
+            chatCache.push(tempMsg);
+            renderChat(chatCache);
+            messageInput.value = '';
+            removeImage();
+            activeQuote = null;
+            messageInput.placeholder = "팬들에게 보낼 메시지를 입력하세요...";
 
             fetch(GOOGLE_API_URL, {
                 method: 'POST',
                 redirect: 'follow',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ type: 'fanletter', ...newLetter })
+                body: JSON.stringify({ type: 'chat', timestamp: Date.now(), ...tempMsg })
             }).then(() => fetchSheetData()).catch(() => {});
+        }
+
+        function replyToFan(userName, text) {
+            activeQuote = { userName, text };
+            const messageInput = document.getElementById('messageInput');
+            messageInput.placeholder = `@${userName} 님의 메시지 인용 답장 중...`;
+            messageInput.focus();
+            closeFanboxModal();
         }
     </script>
 </body>

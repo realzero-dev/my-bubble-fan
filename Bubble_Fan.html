@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubble Fan App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body { font-family: 'Pretendard', sans-serif; }
+        .bubble-text { word-break: break-all; white-space: pre-wrap; }
+    </style>
+</head>
+<body class="bg-pink-50 text-slate-800 min-h-screen flex flex-col items-center justify-center p-0 sm:p-4">
+
+    <!-- 1. 입장 인증 화면 -->
+    <div id="authScreen" class="bg-white w-full max-w-md h-screen sm:h-auto sm:rounded-3xl shadow-xl p-8 flex flex-col justify-center">
+        <div class="text-center mb-8">
+            <span class="bg-pink-100 text-pink-600 text-xs font-bold px-3 py-1 rounded-full">BUBBLE FOR FANS</span>
+            <h1 class="text-2xl font-black mt-3 text-slate-900">프라이빗 메시지 입장</h1>
+            <p class="text-sm text-slate-500 mt-1">지정된 입장 코드를 입력해주세요.</p>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">닉네임</label>
+                <input type="text" id="nicknameInput" placeholder="사용할 닉네임을 입력하세요" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">입장 코드</label>
+                <input type="password" id="codeInput" placeholder="입장 코드를 입력하세요" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-pink-500">
+            </div>
+            <button id="enterBtn" onclick="enterRoom()" class="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-3.5 rounded-2xl transition shadow-lg shadow-pink-500/30 cursor-pointer">입장하기</button>
+            <p id="errorMsg" class="text-xs text-red-500 text-center font-medium hidden">입장 코드가 올바르지 않거나 닉네임을 입력해주세요.</p>
+        </div>
+    </div>
+
+    <!-- 2. 실제 채팅 화면 -->
+    <div id="chatScreen" class="hidden bg-white w-full max-w-md h-screen sm:h-[85vh] sm:rounded-3xl shadow-xl flex flex-col overflow-hidden">
+        <div class="bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+            <div class="flex items-center space-x-3">
+                <div id="artistAvatar" class="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center font-bold text-pink-600 shrink-0">A</div>
+                <div>
+                    <h2 id="artistHeaderName" class="font-bold text-sm text-slate-900">아티스트</h2>
+                    <span id="syncStatus" class="text-xs text-emerald-500 font-medium">● 연결됨</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <div id="userInfoDisplay" class="text-xs bg-slate-100 px-2.5 py-1 rounded-full text-slate-600 font-medium shrink-0"></div>
+                <button onclick="logout()" class="text-[11px] text-slate-400 hover:text-red-500 underline cursor-pointer">나가기</button>
+            </div>
+        </div>
+
+        <div id="chatContainer" class="flex-1 p-4 overflow-y-auto space-y-4 bg-slate-50/50">
+            <p class="text-center text-slate-400 text-xs py-10">메시지를 불러오는 중...</p>
+        </div>
+
+        <div class="bg-white p-3 border-t border-slate-100 flex items-center space-x-2">
+            <input type="text" id="fanInput" placeholder="팬레터 남기기..." class="flex-1 bg-slate-100 border border-transparent rounded-2xl px-4 py-3 text-sm focus:outline-none focus:bg-white focus:border-pink-500">
+            <button id="sendFanBtn" onclick="sendFanLetter()" class="bg-pink-500 hover:bg-pink-600 text-white px-5 py-3 rounded-2xl font-bold text-sm transition shadow-md shadow-pink-500/20 cursor-pointer">보내기</button>
+        </div>
+    </div>
+
+    <script>
+        const GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycbw2E57ZtQ2l1GTDl3l0jeogmMO8joxMYhs5YO9i1gPCNA-Tr16H2hVh81btsTgbRJREHw/exec";
+
+        let currentArtistName = localStorage.getItem('bubble_artist_name') || "아티스트";
+        let validEntryCode = localStorage.getItem('bubble_entry_code') || "bubble123";
+        let currentUserName = localStorage.getItem('bubble_user_name') || "";
+        
+        // 캐시 데이터가 있으면 곧바로 불러와서 지연 시간 제거
+        let chatCache = JSON.parse(localStorage.getItem('bubble_chat_cache') || "[]");
+        let fanLettersCache = JSON.parse(localStorage.getItem('bubble_fanletters_cache') || "[]");
+        let localFanLetters = JSON.parse(localStorage.getItem('bubble_my_letters') || "[]");
+
+        function updateArtistUI() {
+            document.getElementById('artistHeaderName').innerText = currentArtistName;
+            document.getElementById('artistAvatar').innerText = currentArtistName.charAt(0);
+            document.getElementById('fanInput').placeholder = `${currentArtistName}에게 팬레터 남기기...`;
+        }
+
+        window.onload = function() {
+            if (currentUserName) {
+                // 1. 서버 응답을 기다리지 않고 로컬에 저장된 정보로 즉시 화면 전환 (0초 컷)
+                document.getElementById('userInfoDisplay').innerText = `${currentUserName} 님`;
+                updateArtistUI();
+                document.getElementById('authScreen').classList.add('hidden');
+                document.getElementById('chatScreen').classList.remove('hidden');
+                
+                // 만약 캐시된 채팅이 있다면 바로 그려서 빈 화면 방지
+                if (chatCache.length > 0 || localFanLetters.length > 0) {
+                    renderTimeline();
+                }
+
+                // 2. 서버 통신은 백그라운드에서 조용히 실행
+                fetchSheetData();
+                setInterval(fetchSheetData, 1200);
+            }
+
+            document.getElementById('fanInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendFanLetter();
+            });
+        };
+
+        function enterRoom() {
+            const nickname = document.getElementById('nicknameInput').value.trim();
+            const code = document.getElementById('codeInput').value.trim();
+            const errorMsg = document.getElementById('errorMsg');
+
+            if (!nickname || !code) {
+                errorMsg.innerText = "닉네임과 입장 코드를 모두 입력해주세요.";
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            if (code !== validEntryCode) {
+                errorMsg.innerText = "입장 코드가 올바르지 않습니다.";
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+
+            currentUserName = nickname;
+            localStorage.setItem('bubble_user_name', currentUserName);
+            document.getElementById('userInfoDisplay').innerText = `${currentUserName} 님`;
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('chatScreen').classList.remove('hidden');
+
+            renderTimeline();
+            fetchSheetData();
+            setInterval(fetchSheetData, 1200);
+        }
+
+        function logout() {
+            localStorage.removeItem('bubble_user_name');
+            localStorage.removeItem('bubble_my_letters');
+            localStorage.removeItem('bubble_chat_cache');
+            localStorage.removeItem('bubble_fanletters_cache');
+            location.reload();
+        }
+
+        function fetchSheetData() {
+            fetch(GOOGLE_API_URL, { redirect: 'follow' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.config) {
+                        currentArtistName = data.config.artistName || "아티스트";
+                        validEntryCode = data.config.entryCode || "bubble123";
+                        localStorage.setItem('bubble_artist_name', currentArtistName);
+                        localStorage.setItem('bubble_entry_code', validEntryCode);
+                        updateArtistUI();
+                    }
+                    if (data.chats) {
+                        chatCache = data.chats;
+                        localStorage.setItem('bubble_chat_cache', JSON.stringify(chatCache));
+                    }
+                    if (data.fanletters) {
+                        fanLettersCache = data.fanletters;
+                        localStorage.setItem('bubble_fanletters_cache', JSON.stringify(fanLettersCache));
+                    }
+                    renderTimeline();
+                })
+                .catch(() => {});
+        }
+
+        function renderTimeline() {
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = '';
+
+            let combinedList = chatCache.map(msg => ({
+                type: 'artist',
+                timestamp: Number(msg.timestamp) || 0,
+                artistName: msg.artistName,
+                text: msg.text,
+                imageUrl: msg.imageUrl,
+                quote: msg.quote
+            }));
+
+            const allLetters = [...localFanLetters, ...(fanLettersCache.filter(l => l.userName === currentUserName))];
+            const uniqueLettersMap = new Map();
+            allLetters.forEach(l => uniqueLettersMap.set(l.timestamp + l.text, l));
+
+            uniqueLettersMap.forEach(letter => {
+                combinedList.push({
+                    type: 'my_fanletter',
+                    timestamp: Number(letter.timestamp) || 0,
+                    userName: letter.userName,
+                    text: letter.text
+                });
+            });
+
+            combinedList.sort((a, b) => a.timestamp - b.timestamp);
+
+            if (combinedList.length === 0) {
+                chatContainer.innerHTML = '<p class="text-center text-slate-400 text-xs py-10">아직 메시지가 없습니다.</p>';
+                return;
+            }
+
+            combinedList.forEach(item => {
+                const div = document.createElement('div');
+
+                if (item.type === 'artist') {
+                    div.className = 'flex flex-col items-start w-full';
+                    let content = '';
+                    if (item.quote) {
+                        content += `<div class="bg-pink-50 border-l-4 border-pink-500 p-2 rounded text-xs text-slate-600 mb-1 max-w-[85%]">
+                            <span class="font-bold text-pink-600">@${item.quote.userName}</span> 님의 메시지 인용:<br>"${item.quote.text}"
+                        </div>`;
+                    }
+
+                    let innerBubble = `
+                        <div class="flex items-start space-x-2 w-full">
+                            <div class="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center font-bold text-pink-600 text-xs shrink-0">${item.artistName.charAt(0)}</div>
+                            <div class="flex-1">
+                                <div class="text-xs font-bold text-slate-500 mb-1">${item.artistName}</div>
+                                <div class="bg-white border border-slate-100 text-slate-800 p-3.5 rounded-2xl rounded-tl-sm inline-block max-w-[85%] text-sm shadow-sm space-y-2 bubble-text">`;
+
+                    if (item.imageUrl) {
+                        const downloadFilename = `artist_photo_${item.timestamp}.jpg`;
+                        innerBubble += `
+                            <div class="relative group">
+                                <img src="${item.imageUrl}" class="rounded-xl max-h-60 w-full object-cover">
+                                <a href="${item.imageUrl}" download="${downloadFilename}" class="absolute bottom-2 right-2 bg-black/70 hover:bg-black text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg shadow backdrop-blur-sm transition flex items-center space-x-1">
+                                    <span>📥 다운로드</span>
+                                </a>
+                            </div>`;
+                    }
+                    if (item.text) innerBubble += `<div>${item.text}</div>`;
+
+                    innerBubble += `</div></div></div>`;
+                    content += innerBubble;
+                    div.innerHTML = content;
+
+                } else {
+                    div.className = 'flex flex-col items-end w-full mt-2';
+                    div.innerHTML = `
+                        <div class="text-[10px] text-slate-400 mb-0.5">나 (${item.userName})</div>
+                        <div class="bg-pink-500 text-white p-3.5 rounded-2xl rounded-tr-sm max-w-[80%] max-w-max text-sm shadow bubble-text">
+                            ${item.text}
+                        </div>
+                    `;
+                }
+
+                chatContainer.appendChild(div);
+            });
+
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function sendFanLetter() {
+            const fanInput = document.getElementById('fanInput');
+            const text = fanInput.value.trim();
+            if (!text) return;
+
+            const newLetter = {
+                timestamp: Date.now(),
+                userName: currentUserName,
+                text: text
+            };
+
+            localFanLetters.push(newLetter);
+            localStorage.setItem('bubble_my_letters', JSON.stringify(localFanLetters));
+            renderTimeline();
+            fanInput.value = '';
+
+            fetch(GOOGLE_API_URL, {
+                method: 'POST',
+                redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ type: 'fanletter', ...newLetter })
+            }).then(() => fetchSheetData()).catch(() => {});
+        }
+    </script>
+</body>
+</html>
